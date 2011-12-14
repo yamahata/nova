@@ -1799,6 +1799,7 @@ class CloudTestCase(test.TestCase):
                 'kernel_id': 'cedef40a-ed67-4d10-800e-17455edce175',
                 'ramdisk_id': '76fa36fc-c930-4bf3-8c8a-ea2a2420deb6',
                 'user_data': 'fake-user data',
+                'shutdown_terminate': False,
                 }
         self.stubs.Set(self.cloud.compute_api, 'get', fake_get)
 
@@ -1838,7 +1839,7 @@ class CloudTestCase(test.TestCase):
         self.assertEqual(groupSet, expected_groupSet)
         self.assertEqual(get_attribute('instanceInitiatedShutdownBehavior'),
                          {'instance_id': 'i-12345678',
-                          'instanceInitiatedShutdownBehavior': 'stopped'})
+                          'instanceInitiatedShutdownBehavior': 'stop'})
         self.assertEqual(get_attribute('instanceType'),
                          {'instance_id': 'i-12345678',
                           'instanceType': 'fake_type'})

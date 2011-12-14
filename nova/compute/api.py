@@ -483,6 +483,11 @@ class API(base.Base):
         updates['vm_state'] = vm_states.BUILDING
         updates['task_state'] = task_states.SCHEDULING
 
+        if (image['properties'].get('mappings', []) or
+            image['properties'].get('block_device_mapping', []) or
+            block_device_mapping):
+            updates['shutdown_terminate'] = False
+
         instance = self.update(context, instance, **updates)
         return instance
 
@@ -851,7 +856,7 @@ class API(base.Base):
                                     vm_states.RESCUED],
                           task_state=[None, task_states.RESIZE_VERIFY])
     @scheduler_api.reroute_compute("stop")
-    def stop(self, context, instance):
+    def stop(self, context, instance, do_cast=True):
         """Stop an instance."""
         instance_uuid = instance["uuid"]
         LOG.debug(_("Going to try to stop %s"), instance_uuid)
@@ -864,9 +869,14 @@ class API(base.Base):
                     progress=0)
 
         host = instance['host']
-        if host:
+        if not host:
+            return
+
+        if do_cast:
             self._cast_compute_message('stop_instance', context,
                     instance_uuid, host)
+        else:
+            self._call_compute_message('stop_instance', context, instance)
 
     @check_instance_state(vm_state=[vm_states.STOPPED, vm_states.SHUTOFF])
     def start(self, context, instance):
@@ -875,10 +885,15 @@ class API(base.Base):
         instance_uuid = instance["uuid"]
         LOG.debug(_("Going to try to start %s"), instance_uuid)
 
-        if vm_state != vm_states.STOPPED:
-            LOG.warning(_("Instance %(instance_uuid)s is not "
-                          "stopped. (%(vm_state)s)") % locals())
-            return
+        if vm_state == vm_states.SHUTOFF:
+            if instance['shutdown_terminate']:
+                LOG.warning(_("Instance %(instance_uuid)s is not "
+                              "stopped. (%(vm_state)s") % locals())
+                return
+
+            # NOTE(yamahata): nova compute doesn't reap instances
+            # which initiated shutdown itself. So reap it here.
+            self.stop(context, instance, do_cast=False)
 
         self.update(context,
                     instance,

@@ -981,14 +981,10 @@ class CloudController(object):
 
         def _format_attr_instance_initiated_shutdown_behavior(instance,
                                                                result):
-            vm_state = instance['vm_state']
-            state_to_value = {
-                vm_states.STOPPED: 'stopped',
-                vm_states.DELETED: 'terminated',
-            }
-            value = state_to_value.get(vm_state)
-            if value:
-                result['instanceInitiatedShutdownBehavior'] = value
+            if instance['shutdown_terminate']:
+                result['instanceInitiatedShutdownBehavior'] = 'terminate'
+            else:
+                result['instanceInitiatedShutdownBehavior'] = 'stop'
 
         def _format_attr_instance_type(instance, result):
             self._format_instance_type(instance, result)
