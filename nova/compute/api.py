@@ -784,6 +784,9 @@ class API(base.Base):
         instance_uuid = instance["uuid"]
         LOG.debug(_("Going to try to soft delete %s"), instance_uuid)
 
+        if instance['disable_terminate']:
+            return
+
         # NOTE(jerdfelt): The compute daemon handles reclaiming instances
         # that are in soft delete. If there is no host assigned, there is
         # no daemon to reclaim, so delete it immediately.
@@ -825,6 +828,9 @@ class API(base.Base):
     def delete(self, context, instance):
         """Terminate an instance."""
         LOG.debug(_("Going to try to terminate %s"), instance["uuid"])
+
+        if instance['disable_terminate']:
+            return
 
         self._delete(context, instance)
 

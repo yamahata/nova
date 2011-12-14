@@ -974,7 +974,7 @@ class CloudController(object):
                                       tmp['rootDeviceName'], result)
 
         def _format_attr_disable_api_termination(instance, result):
-            _unsupported_attribute(instance, result)
+            result['disableApiTermination'] = instance['disable_terminate']
 
         def _format_attr_group_set(instance, result):
             CloudController._format_group_set(instance, result)
