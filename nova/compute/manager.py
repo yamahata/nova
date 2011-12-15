@@ -582,7 +582,7 @@ class ComputeManager(manager.SchedulerDependentManager):
         bdms = self._get_instance_volume_bdms(context, instance_id)
         block_device_info = self._get_instance_volume_block_device_info(
             context, instance_id)
-        self.driver.destroy(instance, network_info, block_device_info, True)
+        self.driver.destroy(instance, network_info, block_device_info)
         for bdm in bdms:
             try:
                 # NOTE(vish): actual driver detach done in driver.destroy, so
