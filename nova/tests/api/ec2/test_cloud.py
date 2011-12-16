@@ -26,6 +26,8 @@ from M2Crypto import RSA
 
 from nova.api.ec2 import cloud
 from nova.api.ec2 import ec2utils
+from nova.api.ec2 import inst_state
+from nova.compute import power_state
 from nova.compute import vm_states
 from nova import context
 from nova import crypto
@@ -592,6 +594,38 @@ class CloudTestCase(test.TestCase):
         db.instance_destroy(self.context, inst2['id'])
         db.service_destroy(self.context, comp1['id'])
         db.service_destroy(self.context, comp2['id'])
+
+    def test_describe_instance_state(self):
+        """Makes sure describe_instances for instanceState works."""
+
+        def test_instance_state(expected_code, expected_name,
+                                power_state_, vm_state_, values=None):
+            image_uuid = 'cedef40a-ed67-4d10-800e-17455edce175'
+            values = values or {}
+            values.update({'image_ref': image_uuid, 'instance_type_id': 1,
+                           'power_state': power_state_, 'vm_state': vm_state_})
+            inst = db.instance_create(self.context, values)
+
+            instance_id = ec2utils.id_to_ec2_id(inst['id'])
+            result = self.cloud.describe_instances(self.context,
+                                                 instance_id=[instance_id])
+            result = result['reservationSet'][0]
+            result = result['instancesSet'][0]['instanceState']
+
+            name = result['name']
+            code = result['code']
+            self.assertEqual(code, expected_code)
+            self.assertEqual(name, expected_name)
+
+            db.instance_destroy(self.context, inst['id'])
+
+        test_instance_state(inst_state.RUNNING_CODE, inst_state.RUNNING,
+                            power_state.RUNNING, vm_states.ACTIVE)
+        test_instance_state(inst_state.TERMINATED_CODE, inst_state.SHUTOFF,
+                            power_state.NOSTATE, vm_states.SHUTOFF)
+        test_instance_state(inst_state.STOPPED_CODE, inst_state.STOPPED,
+                            power_state.NOSTATE, vm_states.SHUTOFF,
+                            {'shutdown_terminate': False})
 
     def test_describe_instances_no_ipv6(self):
         """Makes sure describe_instances w/ no ipv6 works."""
