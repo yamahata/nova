@@ -1356,6 +1356,15 @@ class ComputeAPITestCase(BaseTestCase):
             'properties': {'kernel_id': 1, 'ramdisk_id': 1},
         }
 
+    def _run_instance(self):
+        instance = self._create_fake_instance()
+        instance_uuid = instance['uuid']
+        self.compute.run_instance(self.context, instance_uuid)
+
+        instance = db.instance_get_by_uuid(self.context, instance_uuid)
+        self.assertEqual(instance['task_state'], None)
+        return instance, instance_uuid
+
     def test_create_with_too_little_ram(self):
         """Test an instance type with too little memory"""
 
@@ -1593,12 +1602,7 @@ class ComputeAPITestCase(BaseTestCase):
         db.instance_destroy(self.context, instance_uuid)
 
     def test_delete(self):
-        instance = self._create_fake_instance()
-        instance_uuid = instance['uuid']
-        self.compute.run_instance(self.context, instance_uuid)
-
-        instance = db.instance_get_by_uuid(self.context, instance_uuid)
-        self.assertEqual(instance['task_state'], None)
+        instance, instance_uuid = self._run_instance()
 
         self.compute_api.delete(self.context, instance)
 
@@ -1607,18 +1611,37 @@ class ComputeAPITestCase(BaseTestCase):
 
         db.instance_destroy(self.context, instance_uuid)
 
-    def test_delete_soft(self):
-        instance = self._create_fake_instance()
-        instance_uuid = instance['uuid']
-        self.compute.run_instance(self.context, instance['uuid'])
+    def test_delete_fail(self):
+        instance, instance_uuid = self._run_instance()
+
+        instance = db.instance_update(self.context, instance_uuid,
+                                      {'disable_terminate': True})
+        self.compute_api.delete(self.context, instance)
 
         instance = db.instance_get_by_uuid(self.context, instance_uuid)
         self.assertEqual(instance['task_state'], None)
+
+        db.instance_destroy(self.context, instance_uuid)
+
+    def test_delete_soft(self):
+        instance, instance_uuid = self._run_instance()
 
         self.compute_api.soft_delete(self.context, instance)
 
         instance = db.instance_get_by_uuid(self.context, instance_uuid)
         self.assertEqual(instance['task_state'], task_states.POWERING_OFF)
+
+        db.instance_destroy(self.context, instance_uuid)
+
+    def test_delete_soft_fail(self):
+        instance, instance_uuid = self._run_instance()
+
+        instance = db.instance_update(self.context, instance_uuid,
+                                      {'disable_terminate': True})
+        self.compute_api.soft_delete(self.context, instance)
+
+        instance = db.instance_get_by_uuid(self.context, instance_uuid)
+        self.assertEqual(instance['task_state'], None)
 
         db.instance_destroy(self.context, instance_uuid)
 
