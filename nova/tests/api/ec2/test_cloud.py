@@ -1857,3 +1857,72 @@ class CloudTestCase(test.TestCase):
         self.assertEqual(get_attribute('userData'),
                          {'instance_id': 'i-12345678',
                           'userData': '}\xa9\x1e\xba\xc7\xabu\xabZ'})
+
+    def test_instance_initiated_shutdown_behavior(self):
+        def test_dia_iisb(expected_result, **kwargs):
+            """test describe_instance_attribute
+            attribute instance_initiated_shutdown_behavior"""
+            kwargs.update({'instance_type': FLAGS.default_instance_type,
+                           'max_count': 1})
+            instance_id = self._run_instance(**kwargs)
+
+            result = self.cloud.describe_instance_attribute(self.context,
+                            instance_id, 'instanceInitiatedShutdownBehavior')
+            self.assertEqual(result['instanceInitiatedShutdownBehavior'],
+                             expected_result)
+
+            result = self.cloud.terminate_instances(self.context,
+                                                    [instance_id])
+            self.assertTrue(result)
+            self._restart_compute_service()
+
+        test_dia_iisb('terminate', image_id='ami-1')
+
+        block_device_mapping = [{'device_name': '/dev/vdb',
+                                 'virtual_name': 'ephemeral0'}]
+        test_dia_iisb('stop', image_id='ami-2',
+                     block_device_mapping=block_device_mapping)
+
+        def fake_show(self, context, id_):
+            LOG.debug("id_ %s", id_)
+            print id_
+
+            prop = {}
+            if id_ == 'ami-3':
+                pass
+            elif id_ == 'ami-4':
+                prop = {'mappings': [{'device': 'sdb0',
+                                          'virtual': 'ephemeral0'}]}
+            elif id_ == 'ami-5':
+                prop = {'block_device_mapping':
+                        [{'device_name': '/dev/sdb0',
+                          'virtual_name': 'ephemeral0'}]}
+            elif id_ == 'ami-6':
+                prop = {'mappings': [{'device': 'sdb0',
+                                          'virtual': 'ephemeral0'}],
+                        'block_device_mapping':
+                        [{'device_name': '/dev/sdb0',
+                          'virtual_name': 'ephemeral0'}]}
+
+            prop_base = {'kernel_id': 'cedef40a-ed67-4d10-800e-17455edce175',
+                         'type': 'machine'}
+            prop_base.update(prop)
+
+            return {
+                'id': id_,
+                'properties': prop_base,
+                'container_format': 'ami',
+                'status': 'active'}
+
+        # NOTE(yamahata): create ami-3 ... ami-6
+        # ami-1 and ami-2 is already created by setUp()
+        for i in range(3, 7):
+            db.api.s3_image_create(self.context, 'ami-%d' % i)
+
+        self.stubs.UnsetAll()
+        self.stubs.Set(fake._FakeImageService, 'show', fake_show)
+
+        test_dia_iisb('terminate', image_id='ami-3')
+        test_dia_iisb('stop', image_id='ami-4')
+        test_dia_iisb('stop', image_id='ami-5')
+        test_dia_iisb('stop', image_id='ami-6')
