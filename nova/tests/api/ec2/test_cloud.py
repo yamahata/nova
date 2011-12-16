@@ -1800,6 +1800,7 @@ class CloudTestCase(test.TestCase):
                 'ramdisk_id': '76fa36fc-c930-4bf3-8c8a-ea2a2420deb6',
                 'user_data': 'fake-user data',
                 'shutdown_terminate': False,
+                'disable_terminate': False,
                 }
         self.stubs.Set(self.cloud.compute_api, 'get', fake_get)
 
@@ -1828,8 +1829,6 @@ class CloudTestCase(test.TestCase):
                                      'attachTime': '13:56:24'}}]}
         expected_bdm['blockDeviceMapping'].sort()
         self.assertEqual(bdm, expected_bdm)
-        # NOTE(yamahata): this isn't supported
-        # get_attribute('disableApiTermination')
         groupSet = get_attribute('groupSet')
         groupSet['groupSet'].sort()
         expected_groupSet = {'instance_id': 'i-12345678',
@@ -1840,6 +1839,9 @@ class CloudTestCase(test.TestCase):
         self.assertEqual(get_attribute('instanceInitiatedShutdownBehavior'),
                          {'instance_id': 'i-12345678',
                           'instanceInitiatedShutdownBehavior': 'stop'})
+        self.assertEqual(get_attribute('disableApiTermination'),
+                         {'instance_id': 'i-12345678',
+                          'disableApiTermination': False})
         self.assertEqual(get_attribute('instanceType'),
                          {'instance_id': 'i-12345678',
                           'instanceType': 'fake_type'})
