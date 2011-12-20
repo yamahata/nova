@@ -2011,9 +2011,16 @@ class ComputeManager(manager.SchedulerDependentManager):
             if vm_power_state == db_power_state:
                 continue
 
-            self._instance_update(context,
-                                  db_instance["id"],
-                                  power_state=vm_power_state)
+            if (vm_power_state in (power_state.NOSTATE, power_state.SHUTOFF)
+                and db_instance['vm_state'] == vm_states.ACTIVE):
+                self._instance_update(context,
+                                      db_instance["id"],
+                                      power_state=vm_power_state,
+                                      vm_state=vm_states.SHUTOFF)
+            else:
+                self._instance_update(context,
+                                      db_instance["id"],
+                                      power_state=vm_power_state)
 
     @manager.periodic_task
     def _reclaim_queued_deletes(self, context):

@@ -1562,10 +1562,11 @@ class CloudController(object):
             vm_state = instance['vm_state']
 
             # if the instance is in subtle state, refuse to proceed.
-            if vm_state not in (vm_states.ACTIVE, vm_states.STOPPED):
+            if vm_state not in (vm_states.ACTIVE, vm_states.SHUTOFF,
+                                vm_states.STOPPED):
                 raise exception.InstanceNotRunning(instance_id=ec2_instance_id)
 
-            if vm_state == vm_states.ACTIVE:
+            if vm_state in (vm_states.ACTIVE, vm_states.SHUTOFF):
                 restart_instance = True
                 self.compute_api.stop(context, instance_id=instance_id)
 
