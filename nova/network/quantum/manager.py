@@ -220,6 +220,7 @@ class QuantumManager(manager.FlatManager):
            lib to allocate IP addresses.
         """
         instance_id = kwargs.pop('instance_id')
+        instance_uuid = kwargs.pop('instance_uuid')
         instance_type_id = kwargs['instance_type_id']
         host = kwargs.pop('host')
         project_id = kwargs.pop('project_id')
@@ -300,7 +301,7 @@ class QuantumManager(manager.FlatManager):
             if FLAGS.quantum_use_dhcp:
                 self.enable_dhcp(context, quantum_net_id, network_ref,
                     vif_rec, project_id)
-        return self.get_instance_nw_info(context, instance_id,
+        return self.get_instance_nw_info(context, instance_id, instance_uuid,
                                          instance_type_id, host)
 
     def enable_dhcp(self, context, quantum_net_id, network_ref, vif_rec,
@@ -385,7 +386,7 @@ class QuantumManager(manager.FlatManager):
 
         return self.db.virtual_interface_create(context, vif)
 
-    def get_instance_nw_info(self, context, instance_id,
+    def get_instance_nw_info(self, context, instance_id, instance_uuid,
                                 instance_type_id, host):
         """This method is used by compute to fetch all network data
            that should be used when creating the VM.
@@ -400,7 +401,9 @@ class QuantumManager(manager.FlatManager):
            in the future.
         """
         network_info = []
+        fixed_ips = []
         instance = db.instance_get(context, instance_id)
+        instance_type = instance_types.get_instance_type(instance_type_id)
         project_id = instance.project_id
 
         admin_context = context.elevated()
@@ -473,6 +476,13 @@ class QuantumManager(manager.FlatManager):
             info['dns'] = [d for d in dns_dict.keys()]
 
             network_info.append((network_dict, info))
+
+        # update instance network cache and return network_info
+        nw_info = self.build_network_info_model(context, vifs, fixed_ips,
+                                                instance_type)
+        self.db.instance_info_cache_update(context, instance_uuid,
+                                           {'network_info': nw_info.as_cache()})
+        # TODO(tr3buchet): return model
         return network_info
 
     def deallocate_for_instance(self, context, **kwargs):
